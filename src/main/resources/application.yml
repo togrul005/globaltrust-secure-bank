@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: globaltrust-secure-bank
+  datasource:
+    url: jdbc:h2:mem:bankdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+# Clark-Wilson policy knob: transfers at or below this amount are single-control
+# (auto-executed); anything above requires a second person to approve (maker-checker).
+bank:
+  auto-approve-threshold: 1000.00
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+  api-docs:
+    path: /v3/api-docs
+
+logging:
+  level:
+    com.globaltrust.bank: INFO

@@ -1,0 +1,69 @@
+### GlobalTrust Secure Bank — IntelliJ HTTP client walkthrough
+# Run top to bottom. Auth is pre-encoded HTTP Basic; C1 captures the transfer id automatically.
+@base = http://localhost:8080
+
+### A1. Who am I? (alice / CUSTOMER)
+GET {{base}}/api/me
+Authorization: Basic YWxpY2U6cGFzc3dvcmQ=
+
+### A2. Customer cannot read the audit log -> 403
+GET {{base}}/api/audit
+Authorization: Basic YWxpY2U6cGFzc3dvcmQ=
+
+### A3. Auditor can read the audit log -> 200
+GET {{base}}/api/audit
+Authorization: Basic YXJpYTpwYXNzd29yZA==
+
+### B. Clark-Wilson: small transfer auto-executes (<= 1000)
+POST {{base}}/api/transfers
+Authorization: Basic YWxpY2U6cGFzc3dvcmQ=
+Content-Type: application/json
+
+{ "fromAccount": "ACC-1001", "toAccount": "ACC-1002", "amount": 500, "reason": "rent" }
+
+### C1. Maker (victor) creates an above-threshold transfer -> PENDING_APPROVAL
+POST {{base}}/api/transfers
+Authorization: Basic dmljdG9yOnBhc3N3b3Jk
+Content-Type: application/json
+
+{ "fromAccount": "ACC-9000", "toAccount": "ACC-1001", "amount": 2500, "reason": "ops top-up" }
+
+> {% client.global.set("transferId", response.body.id); %}
+
+### C2. Same person approves their own -> 403 Separation of Duty Violation
+POST {{base}}/api/transfers/{{transferId}}/approve
+Authorization: Basic dmljdG9yOnBhc3N3b3Jk
+
+### C3. A different approver (wendy) approves -> EXECUTED
+POST {{base}}/api/transfers/{{transferId}}/approve
+Authorization: Basic d2VuZHk6cGFzc3dvcmQ=
+
+### D1. Chinese Wall: open Acme (TECH) -> granted, advisor now walled to Acme
+GET {{base}}/api/advisory/companies/1
+Authorization: Basic ZGlhbmE6cGFzc3dvcmQ=
+
+### D2. Open Globex (TECH competitor) -> 403 Chinese Wall Violation
+GET {{base}}/api/advisory/companies/2
+Authorization: Basic ZGlhbmE6cGFzc3dvcmQ=
+
+### D3. Open Initech (PHARMA, different class) -> granted
+GET {{base}}/api/advisory/companies/3
+Authorization: Basic ZGlhbmE6cGFzc3dvcmQ=
+
+### E1. Admin provisions a new user (admin power)
+POST {{base}}/api/admin/users
+Authorization: Basic YWRhbTpwYXNzd29yZA==
+Content-Type: application/json
+
+{ "username": "carol", "password": "password", "fullName": "Carol Customer", "role": "CUSTOMER", "department": "RETAIL" }
+
+### E2. Admin tries to move money -> 403 (no business authority)
+POST {{base}}/api/transfers
+Authorization: Basic YWRhbTpwYXNzd29yZA==
+Content-Type: application/json
+
+{ "fromAccount": "ACC-9000", "toAccount": "ACC-1001", "amount": 100, "reason": "should fail" }
+
+### F. Full audit trail (newest first)
+GET {{base}}/api/audit
+Authorization: Basic YXJpYTpwYXNzd29yZA==
